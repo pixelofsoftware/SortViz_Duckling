@@ -1,0 +1,8 @@
+n = 8, dane: 5 3 8 1 9 2 7 4
+algorytm            porownania   zamiany    zapisy
+babelkowe                   25        14         0   ok
+przez wstawianie            19        14         0   ok
+przez wybieranie            28         6         0   ok
+przez scalanie              17         0        24   ok
+szybkie                     15         8         0   ok
+przez kopcowanie            26        18         0   ok

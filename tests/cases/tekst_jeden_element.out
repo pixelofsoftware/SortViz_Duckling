@@ -1,0 +1,8 @@
+krok 0: start
+0 | 42 ####################
+
+krok 1: koniec
+0 | 42 ####################
+
+sortowanie babelkowe: porownania 0, zamiany 0, zapisy 0
+wynik: 42

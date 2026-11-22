@@ -1,4 +1,5 @@
-# Buduje pakiet oficjalnym wydaniem Ducklinga i uruchamia testy wyjścia (scripts/test.sh).
+# Buduje pakiet oficjalnym wydaniem Ducklinga, uruchamia testy wyjścia (scripts/test.sh)
+# i zapisuje animacje HTML wszystkich algorytmów jako artefakt przebiegu (animacje-sortowania).
 # Toolchain: https://github.com/ducktype-org/duckling/releases, sprawdzany sumą SHA-256.
 # Przy zmianie wersji zaktualizuj DUCKLING_VERSION i DUCKLING_SHA256 (suma pliku .tar.gz z wydania).
 name: CI
@@ -52,3 +53,12 @@ jobs:
 
       - name: Test
         run: scripts/test.sh --no-build
+
+      - name: Animacje HTML
+        run: scripts/animacje.sh 40 2026
+
+      - name: Upload animacji
+        uses: actions/upload-artifact@v7
+        with:
+          name: animacje-sortowania
+          path: build/animacje/

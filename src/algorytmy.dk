@@ -1,0 +1,214 @@
+# Sześć algorytmów sortowania. Każdy pracuje na tablicy t w miejscu i zgłasza do śladu
+# każde porównanie, zamianę i zapis, więc ten sam kod liczy operacje i rysuje animację.
+import core.builtins.*;
+import sortviz.slad;
+
+const LICZBA_ALGORYTMOW: i64 = 6;
+
+fun nazwa(nr: i64) -> str = {
+    if (nr == 1) return "babelkowe";
+    if (nr == 2) return "przez wstawianie";
+    if (nr == 3) return "przez wybieranie";
+    if (nr == 4) return "przez scalanie";
+    if (nr == 5) return "szybkie";
+    return "przez kopcowanie";
+}
+
+# Czy t[i] < t[j]? Zgłasza porównanie.
+fun mniejsze(s: ref slad.Slad, t: ref List[i64], i: i64, j: i64) -> bool = {
+    slad.zdarzenie(s, t, slad.POROWNANIE, i, j);
+    return t.at(i) < t.at(j);
+}
+
+fun zamien(s: ref slad.Slad, t: ref List[i64], i: i64, j: i64) -> () = {
+    # Jawny typ: `var x = t.at(i)` byłoby referencją do t[i], a nie kopią wartości.
+    var x: i64 = t.at(i);
+    t.at(i) = t.at(j);
+    t.at(j) = x;
+    slad.zdarzenie(s, t, slad.ZAMIANA, i, j);
+}
+
+fun zapisz(s: ref slad.Slad, t: ref List[i64], i: i64, v: i64) -> () = {
+    t.at(i) = v;
+    slad.zdarzenie(s, t, slad.ZAPIS, i, -1);
+}
+
+# 1. Bąbelkowe: sąsiednie pary zamieniane, dopóki w przebiegu była jakaś zamiana.
+fun babelkowe(s: ref slad.Slad, t: ref List[i64]) -> () = {
+    var koniec = t.length() - 1;
+    var zmiana = true;
+    while (zmiana) {
+        zmiana = false;
+        var k: i64 = 0;
+        while (k < koniec) {
+            if (mniejsze(s, t, k + 1, k)) {
+                zamien(s, t, k, k + 1);
+                zmiana = true;
+            }
+            k += 1;
+        }
+        koniec -= 1;
+    }
+}
+
+# 2. Przez wstawianie: kolejny element przesuwany w lewo, aż trafi na swoje miejsce.
+fun przez_wstawianie(s: ref slad.Slad, t: ref List[i64]) -> () = {
+    var i: i64 = 1;
+    while (i < t.length()) {
+        var j = i;
+        var dalej = true;
+        while (dalej and j > 0) {
+            if (mniejsze(s, t, j, j - 1)) {
+                zamien(s, t, j - 1, j);
+                j -= 1;
+            } else {
+                dalej = false;
+            }
+        }
+        i += 1;
+    }
+}
+
+# 3. Przez wybieranie: najmniejszy z nieposortowanej części trafia na jej początek.
+fun przez_wybieranie(s: ref slad.Slad, t: ref List[i64]) -> () = {
+    var n = t.length();
+    var i: i64 = 0;
+    while (i < n - 1) {
+        var m = i;
+        var j = i + 1;
+        while (j < n) {
+            if (mniejsze(s, t, j, m)) m = j;
+            j += 1;
+        }
+        if (m != i) zamien(s, t, i, m);
+        i += 1;
+    }
+}
+
+# Scalenie posortowanych fragmentów [lewo, srodek) i [srodek, prawo) przez kopię w pom.
+fun scal(s: ref slad.Slad, t: ref List[i64], pom: ref List[i64], lewo: i64, srodek: i64, prawo: i64) -> () = {
+    var k = lewo;
+    while (k < prawo) {
+        pom.at(k) = t.at(k);
+        k += 1;
+    }
+    var i = lewo;
+    var j = srodek;
+    k = lewo;
+    while (i < srodek and j < prawo) {
+        slad.zdarzenie(s, t, slad.POROWNANIE, i, j);
+        if (pom.at(j) < pom.at(i)) {
+            zapisz(s, t, k, pom.at(j));
+            j += 1;
+        } else {
+            zapisz(s, t, k, pom.at(i));
+            i += 1;
+        }
+        k += 1;
+    }
+    while (i < srodek) {
+        zapisz(s, t, k, pom.at(i));
+        i += 1;
+        k += 1;
+    }
+    while (j < prawo) {
+        zapisz(s, t, k, pom.at(j));
+        j += 1;
+        k += 1;
+    }
+}
+
+# 4. Przez scalanie (wstępujące): scalanie par fragmentów o długości 1, 2, 4, ...
+fun przez_scalanie(s: ref slad.Slad, t: ref List[i64]) -> () = {
+    var n = t.length();
+    var pom: List[i64];
+    var k: i64 = 0;
+    while (k < n) {
+        pom.push(0);
+        k += 1;
+    }
+    var szer: i64 = 1;
+    while (szer < n) {
+        var lewo: i64 = 0;
+        while (lewo < n - szer) {
+            var prawo = lewo + 2 * szer;
+            if (prawo > n) prawo = n;
+            scal(s, t, &pom, lewo, lewo + szer, prawo);
+            lewo += 2 * szer;
+        }
+        szer *= 2;
+    }
+}
+
+# Szybkie na fragmencie [lo, hi]: podział Lomuto z ostatnim elementem jako osią.
+fun szybkie_zakres(s: ref slad.Slad, t: ref List[i64], lo: i64, hi: i64) -> () = {
+    if (lo < hi) {
+        var i = lo;
+        var j = lo;
+        while (j < hi) {
+            if (mniejsze(s, t, j, hi)) {
+                if (i != j) zamien(s, t, i, j);
+                i += 1;
+            }
+            j += 1;
+        }
+        if (i != hi) zamien(s, t, i, hi);
+        szybkie_zakres(s, t, lo, i - 1);
+        szybkie_zakres(s, t, i + 1, hi);
+    }
+}
+
+# 5. Szybkie.
+fun szybkie(s: ref slad.Slad, t: ref List[i64]) -> () = {
+    szybkie_zakres(s, t, 0, t.length() - 1);
+}
+
+# Przesiewanie w dół w kopcu maksymalnym o rozmiarze `rozmiar`, od pozycji `start`.
+fun przesiej(s: ref slad.Slad, t: ref List[i64], start: i64, rozmiar: i64) -> () = {
+    var k = start;
+    var dalej = true;
+    while (dalej) {
+        var l = 2 * k + 1;
+        if (l >= rozmiar) {
+            dalej = false;
+        } else {
+            var w = l;
+            if (l + 1 < rozmiar) {
+                if (mniejsze(s, t, l, l + 1)) w = l + 1;
+            }
+            if (mniejsze(s, t, k, w)) {
+                zamien(s, t, k, w);
+                k = w;
+            } else {
+                dalej = false;
+            }
+        }
+    }
+}
+
+# 6. Przez kopcowanie: budowa kopca, potem największy element na koniec i przesiewanie.
+fun przez_kopcowanie(s: ref slad.Slad, t: ref List[i64]) -> () = {
+    var n = t.length();
+    var k = n / 2 - 1;
+    while (k >= 0) {
+        przesiej(s, t, k, n);
+        k -= 1;
+    }
+    var koniec = n - 1;
+    while (koniec > 0) {
+        zamien(s, t, 0, koniec);
+        przesiej(s, t, 0, koniec);
+        koniec -= 1;
+    }
+}
+
+fun sortuj(nr: i64, s: ref slad.Slad, t: ref List[i64]) -> () = {
+    slad.zdarzenie(s, t, slad.START, -1, -1);
+    if (nr == 1) babelkowe(s, t);
+    if (nr == 2) przez_wstawianie(s, t);
+    if (nr == 3) przez_wybieranie(s, t);
+    if (nr == 4) przez_scalanie(s, t);
+    if (nr == 5) szybkie(s, t);
+    if (nr == 6) przez_kopcowanie(s, t);
+    slad.zdarzenie(s, t, slad.KONIEC, -1, -1);
+}

@@ -1,0 +1,162 @@
+# Ślad sortowania: liczniki operacji i klatki animacji.
+# Algorytmy (algorytmy.dk) zgłaszają tu każde porównanie, zamianę i zapis. W zależności od trybu
+# ślad rysuje klatkę w terminalu, zapamiętuje ją do animacji HTML albo tylko liczy operacje.
+import core.builtins.*;
+
+# Rodzaje zdarzeń.
+const START: i64 = 0;
+const POROWNANIE: i64 = 1;
+const ZAMIANA: i64 = 2;
+const ZAPIS: i64 = 3;
+const KONIEC: i64 = 4;
+
+# Tryby pracy.
+const TEKST: i64 = 1;
+const HTML: i64 = 2;
+const LICZNIKI: i64 = 3;
+
+# Najdłuższy słupek w terminalu (znaki).
+const SZEROKOSC: i64 = 40;
+
+class Slad {
+    tryb: i64;
+    porownania: i64;
+    zamiany: i64;
+    zapisy: i64;
+    klatek: i64;
+    limit: i64;
+    obciete: bool;
+    najmniejsza: i64;
+    najwieksza: i64;
+    # Klatki do animacji HTML: wartości tablicy jedna za drugą, po n na klatkę,
+    # oraz rodzaj zdarzenia i dwa wskazane indeksy (-1, gdy brak).
+    wartosci: List[i64];
+    rodzaje: List[i64];
+    pierwsze: List[i64];
+    drugie: List[i64];
+}
+
+fun nowy(tryb: i64, limit: i64, t: ref List[i64]) -> Slad = {
+    var s: Slad;
+    s.tryb = tryb;
+    s.porownania = 0;
+    s.zamiany = 0;
+    s.zapisy = 0;
+    s.klatek = 0;
+    s.limit = limit;
+    s.obciete = false;
+    s.najmniejsza = t.at(0);
+    s.najwieksza = t.at(0);
+    var k: i64 = 1;
+    while (k < t.length()) {
+        if (t.at(k) < s.najmniejsza) s.najmniejsza = t.at(k);
+        if (t.at(k) > s.najwieksza) s.najwieksza = t.at(k);
+        k += 1;
+    }
+    return s;
+}
+
+fun nazwa_zdarzenia(rodzaj: i64) -> str = {
+    if (rodzaj == POROWNANIE) return "porownanie";
+    if (rodzaj == ZAMIANA) return "zamiana";
+    if (rodzaj == ZAPIS) return "zapis";
+    if (rodzaj == START) return "start";
+    return "koniec";
+}
+
+# Liczba znaków słupka dla wartości v: od 1 do SZEROKOSC, proporcjonalnie do v - najmniejsza.
+fun dlugosc_slupka(s: ref Slad, v: i64) -> i64 = {
+    var zakres = s.najwieksza - s.najmniejsza;
+    if (zakres == 0) return SZEROKOSC / 2;
+    return 1 + (v - s.najmniejsza) * (SZEROKOSC - 1) / zakres;
+}
+
+fun cyfry(x: i64) -> i64 = {
+    var d: i64 = 1;
+    var v = x;
+    if (v < 0) {
+        d += 1;
+        v = -v;
+    }
+    while (v >= 10) {
+        v = v / 10;
+        d += 1;
+    }
+    return d;
+}
+
+# Liczba wyrównana do prawej w polu o szerokości w.
+fun wypisz_liczbe(x: i64, w: i64) -> () = {
+    var k = cyfry(x);
+    while (k < w) {
+        print(" ");
+        k += 1;
+    }
+    print(f"{x}");
+}
+
+fun rysuj(s: ref Slad, t: ref List[i64], rodzaj: i64, i: i64, j: i64) -> () = {
+    print(f"krok {s.klatek}: {nazwa_zdarzenia(rodzaj)}");
+    if (i >= 0) print(f" [{i}]");
+    if (j >= 0) print(f" [{j}]");
+    print("\n");
+    var szer = cyfry(s.najwieksza);
+    if (cyfry(s.najmniejsza) > szer) szer = cyfry(s.najmniejsza);
+    var k: i64 = 0;
+    while (k < t.length()) {
+        wypisz_liczbe(k, cyfry(t.length() - 1));
+        print(" |");
+        wypisz_liczbe(t.at(k), szer + 1);
+        print(" ");
+        var d = dlugosc_slupka(s, t.at(k));
+        var z: i64 = 0;
+        while (z < d) {
+            print("#");
+            z += 1;
+        }
+        if (k == i or k == j) {
+            while (z < SZEROKOSC + 1) {
+                print(" ");
+                z += 1;
+            }
+            if (rodzaj == POROWNANIE) {
+                print("<- ?");
+            } else {
+                print("<- *");
+            }
+        }
+        print("\n");
+        k += 1;
+    }
+    print("\n");
+}
+
+fun zapamietaj(s: ref Slad, t: ref List[i64], rodzaj: i64, i: i64, j: i64) -> () = {
+    var k: i64 = 0;
+    while (k < t.length()) {
+        s.wartosci.push(t.at(k));
+        k += 1;
+    }
+    s.rodzaje.push(rodzaj);
+    s.pierwsze.push(i);
+    s.drugie.push(j);
+}
+
+# Zgłoszenie zdarzenia: zawsze liczy, a w trybie tekstowym i HTML zapisuje klatkę (do limitu).
+fun zdarzenie(s: ref Slad, t: ref List[i64], rodzaj: i64, i: i64, j: i64) -> () = {
+    if (rodzaj == POROWNANIE) s.porownania += 1;
+    if (rodzaj == ZAMIANA) s.zamiany += 1;
+    if (rodzaj == ZAPIS) s.zapisy += 1;
+    if (s.tryb != LICZNIKI) {
+        if (s.klatek < s.limit or rodzaj == KONIEC) {
+            if (s.tryb == TEKST) {
+                rysuj(s, t, rodzaj, i, j);
+            } else {
+                zapamietaj(s, t, rodzaj, i, j);
+            }
+            s.klatek += 1;
+        } else {
+            s.obciete = true;
+        }
+    }
+}

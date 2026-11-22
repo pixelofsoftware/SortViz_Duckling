@@ -1,0 +1,8 @@
+n = 30, dane: 18 62 72 24 83 18 56 82 22 70 41 93 39 65 16 68 18 58 43 20 7 71 61 64 29 3 81 26 52 91
+algorytm            porownania   zamiany    zapisy
+babelkowe                  429       221         0   ok
+przez wstawianie           247       221         0   ok
+przez wybieranie           435        25         0   ok
+przez scalanie             114         0       148   ok
+szybkie                    130        67         0   ok
+przez kopcowanie           206       121         0   ok

@@ -1,0 +1,77 @@
+# Animacja HTML: jeden samodzielny plik (bez internetu) z klatkami zapisanymi przez ślad.
+# W napisach są tylko apostrofy, bez cudzysłowów i ukośników wstecznych: polskie litery jako encje HTML.
+import core.builtins.*;
+import sortviz.slad;
+
+fun lista_js(nazwa: str, v: ref List[i64]) -> () = {
+    print(f"const {nazwa}=[");
+    var k: i64 = 0;
+    while (k < v.length()) {
+        if (k > 0) print(",");
+        print(f"{v.at(k)}");
+        k += 1;
+    }
+    print("];\n");
+}
+
+fun wypisz(s: ref slad.Slad, n: i64, algorytm: str) -> () = {
+    print("<!DOCTYPE html>\n<html lang='pl'>\n<head>\n<meta charset='utf-8'>\n");
+    print("<meta name='viewport' content='width=device-width, initial-scale=1'>\n");
+    print(f"<title>SortViz: sortowanie {algorytm}</title>\n");
+    print("<style>\n");
+    print("body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:24px}\n");
+    print("h1{font-size:22px;margin:0 0 4px}#info{color:#94a3b8;margin-bottom:28px;min-height:1.4em}\n");
+    print("#plot{display:flex;align-items:flex-end;gap:2px;height:58vh;border-bottom:1px solid #334155}\n");
+    print(".b{flex:1;background:#60a5fa;position:relative;min-width:2px;border-radius:2px 2px 0 0;transition:height .08s}\n");
+    print(".b.p{background:#fbbf24}.b.z{background:#f87171}.b.k{background:#34d399}\n");
+    print(".b span{position:absolute;bottom:100%;left:0;right:0;text-align:center;font-size:11px;color:#94a3b8}\n");
+    print("#ctl{margin-top:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}\n");
+    print("button{background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:6px 12px;font-size:15px;cursor:pointer}\n");
+    print("button:hover{background:#334155}input[type=range]{accent-color:#60a5fa}#pos{width:min(420px,60vw)}\n");
+    print(".leg{margin-top:14px;color:#94a3b8;font-size:14px}.leg i{display:inline-block;width:12px;height:12px;margin:0 6px 0 14px;vertical-align:-1px;border-radius:2px}\n");
+    print("#cnt{font-variant-numeric:tabular-nums;color:#cbd5e1}\n");
+    print("</style>\n</head>\n<body>\n");
+    print(f"<h1>Sortowanie {algorytm}</h1>\n");
+    print("<div id='info'></div>\n<div id='plot'></div>\n<div id='ctl'>\n");
+    print("<button id='first' title='Pocz&#261;tek'>&#9198;</button><button id='prev' title='Krok wstecz'>&#9664;</button>\n");
+    print("<button id='play' title='Start / pauza (spacja)'>&#9654;</button><button id='next' title='Krok naprz&oacute;d'>&#9654;&#9654;</button>\n");
+    print("<button id='last' title='Koniec'>&#9197;</button>\n");
+    print("<input id='pos' type='range' min='0' value='0'>\n");
+    print("<label>tempo <input id='speed' type='range' min='1' max='200' value='30'></label>\n");
+    print("<span id='cnt'></span>\n</div>\n");
+    print("<div class='leg'><i style='background:#fbbf24'></i>por&oacute;wnanie<i style='background:#f87171'></i>zamiana / zapis");
+    print("<i style='background:#34d399'></i>posortowane<i style='background:#60a5fa'></i>pozosta&#322;e</div>\n");
+    print("<script>\n");
+    print(f"const N={n};\n");
+    lista_js("W", &s.wartosci);
+    lista_js("R", &s.rodzaje);
+    lista_js("A", &s.pierwsze);
+    lista_js("B", &s.drugie);
+    if (s.obciete) {
+        print("const OBC=true;\n");
+    } else {
+        print("const OBC=false;\n");
+    }
+    print("const F=R.length,NAZWY=['start','por&oacute;wnanie','zamiana','zapis','koniec'];\n");
+    print("let mn=W[0],mx=W[0];for(const v of W){if(v<mn)mn=v;if(v>mx)mx=v;}\n");
+    print("const P=[],Z=[],S=[];{let p=0,z=0,s=0;for(let f=0;f<F;f++){if(R[f]===1)p++;if(R[f]===2)z++;if(R[f]===3)s++;P.push(p);Z.push(z);S.push(s);}}\n");
+    print("const plot=document.getElementById('plot'),info=document.getElementById('info'),cnt=document.getElementById('cnt');\n");
+    print("const pos=document.getElementById('pos'),speed=document.getElementById('speed'),play=document.getElementById('play');\n");
+    print("const bars=[];for(let i=0;i<N;i++){const d=document.createElement('div');d.className='b';const s=document.createElement('span');d.appendChild(s);plot.appendChild(d);bars.push(d);}\n");
+    print("pos.max=F-1;let cur=0,timer=null;\n");
+    print("function show(f){cur=f;pos.value=f;const r=R[f],a=A[f],b=B[f],koniec=(r===4);\n");
+    print(" for(let i=0;i<N;i++){const v=W[f*N+i],d=bars[i];d.style.height=(4+96*(v-mn)/((mx-mn)||1))+'%';\n");
+    print("  d.firstChild.textContent=(N<=40)?v:'';let c='b';if(koniec)c+=' k';else if(i===a||i===b)c+=(r===1)?' p':' z';d.className=c;}\n");
+    print(" let t='krok '+f+' / '+(F-1)+': '+NAZWY[r];if(a>=0)t+=' ['+a+']';if(b>=0)t+=' ['+b+']';\n");
+    print(" if(koniec&&OBC)t+=' (animacja skr&oacute;cona: pokazano pocz&#261;tek i wynik)';info.innerHTML=t;\n");
+    print(" cnt.innerHTML='por&oacute;wnania: '+P[f]+' &middot; zamiany: '+Z[f]+' &middot; zapisy: '+S[f];}\n");
+    print("function stop(){if(timer){clearTimeout(timer);timer=null;}play.innerHTML='&#9654;';}\n");
+    print("function tick(){if(cur>=F-1){stop();return;}show(cur+1);timer=setTimeout(tick,1000/speed.value);}\n");
+    print("function toggle(){if(timer){stop();}else{if(cur>=F-1)show(0);play.innerHTML='&#10074;&#10074;';tick();}}\n");
+    print("play.onclick=toggle;\n");
+    print("document.getElementById('first').onclick=()=>{stop();show(0);};document.getElementById('last').onclick=()=>{stop();show(F-1);};\n");
+    print("document.getElementById('prev').onclick=()=>{stop();show(Math.max(0,cur-1));};document.getElementById('next').onclick=()=>{stop();show(Math.min(F-1,cur+1));};\n");
+    print("pos.oninput=()=>{stop();show(+pos.value);};\n");
+    print("document.addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();toggle();}else if(e.key==='ArrowRight'){stop();show(Math.min(F-1,cur+1));}else if(e.key==='ArrowLeft'){stop();show(Math.max(0,cur-1));}});\n");
+    print("show(0);\n</script>\n</body>\n</html>\n");
+}

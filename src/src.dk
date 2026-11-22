@@ -1,21 +1,191 @@
-# Punkt wejścia pakietu: `duck run` uruchamia main().
-# Wejście: n, potem n liczb całkowitych. Wyjście: ich suma i maksimum.
+# SortViz: wizualizacja algorytmów sortowania w Ducklingu.
+#
+# Wejście (liczby całkowite, dowolnie rozdzielone białymi znakami):
+#   algorytm tryb dane n [ziarno | a1 ... an]
+# algorytm: 1 bąbelkowe, 2 przez wstawianie, 3 przez wybieranie, 4 przez scalanie, 5 szybkie,
+#           6 przez kopcowanie, 0 wszystkie (tylko w trybie 3)
+# tryb:     1 klatki w terminalu, 2 animacja HTML na standardowe wyjście, 3 porównanie liczby operacji
+# dane:     1 podane liczby a1..an, 2 losowe 1..99 z ziarnem, 3 malejące n..1, 4 rosnące 1..n
 import core.builtins.*;
-import statystyki;
+import slad;
+import algorytmy;
+import html;
 
-fun main() = {
-    var n = builtin_input_i64();
-    if (n <= 0) {
-        print("brak danych\n");
-        return 0;
+const MAX_N_ANIMACJA: i64 = 100;
+const MAX_N_LICZNIKI: i64 = 5000;
+const LIMIT_TEKST: i64 = 2000;
+const LIMIT_HTML: i64 = 6000;
+
+# Liczby pseudolosowe 1..99 (generator liniowy, ten sam wynik dla tego samego ziarna).
+fun losowe(n: i64, ziarno: i64) -> List[i64] = {
+    var t: List[i64];
+    var x = ziarno;
+    var k: i64 = 0;
+    while (k < n) {
+        x = x * 6364136223846793005i64 + 1442695040888963407i64;
+        var r = (x / 8589934592i64) % 99i64;
+        if (r < 0) r += 99;
+        t.push(r + 1);
+        k += 1;
     }
-    var liczby: List[i64];
-    var i: i64 = 0;
-    while (i < n) {
-        liczby.push(builtin_input_i64());
+    return t;
+}
+
+fun kopia(t: ref List[i64]) -> List[i64] = {
+    var w: List[i64];
+    var k: i64 = 0;
+    while (k < t.length()) {
+        w.push(t.at(k));
+        k += 1;
+    }
+    return w;
+}
+
+# Czy wynik to posortowana permutacja wejścia? Porównanie z prostym sortowaniem przez wstawianie
+# (bez śladu), więc wykrywa też zgubione albo zdublowane elementy, a nie tylko złą kolejność.
+fun poprawny_wynik(wejscie: ref List[i64], wynik: ref List[i64]) -> bool = {
+    var wzor = kopia(wejscie);
+    var i: i64 = 1;
+    while (i < wzor.length()) {
+        var x: i64 = wzor.at(i);
+        var j = i - 1;
+        var dalej = true;
+        while (dalej and j >= 0) {
+            if (wzor.at(j) > x) {
+                wzor.at(j + 1) = wzor.at(j);
+                j -= 1;
+            } else {
+                dalej = false;
+            }
+        }
+        wzor.at(j + 1) = x;
         i += 1;
     }
-    print(f"suma: {statystyki.suma(&liczby)}\n");
-    print(f"maksimum: {statystyki.maksimum(&liczby)}\n");
+    if (wzor.length() != wynik.length()) return false;
+    var k: i64 = 0;
+    while (k < wzor.length()) {
+        if (wzor.at(k) != wynik.at(k)) return false;
+        k += 1;
+    }
+    return true;
+}
+
+fun wypisz_tablice(t: ref List[i64]) -> () = {
+    var k: i64 = 0;
+    while (k < t.length()) {
+        if (k > 0) print(" ");
+        print(f"{t.at(k)}");
+        k += 1;
+    }
+    print("\n");
+}
+
+fun spacje(ile: i64) -> () = {
+    var k: i64 = 0;
+    while (k < ile) {
+        print(" ");
+        k += 1;
+    }
+}
+
+fun porownaj(nr: i64, t: ref List[i64]) -> () = {
+    var robocza = kopia(t);
+    var s = slad.nowy(slad.LICZNIKI, 0, &robocza);
+    algorytmy.sortuj(nr, &s, &robocza);
+    var nazwa = algorytmy.nazwa(nr);
+    print(f"{nazwa}");
+    spacje(18 - dlugosc_nazwy(nr));
+    slad.wypisz_liczbe(s.porownania, 12);
+    slad.wypisz_liczbe(s.zamiany, 10);
+    slad.wypisz_liczbe(s.zapisy, 10);
+    if (poprawny_wynik(t, &robocza)) {
+        print("   ok\n");
+    } else {
+        print("   BLAD\n");
+    }
+}
+
+fun dlugosc_nazwy(nr: i64) -> i64 = {
+    if (nr == 1) return 9;
+    if (nr == 2) return 16;
+    if (nr == 3) return 16;
+    if (nr == 4) return 14;
+    if (nr == 5) return 7;
+    return 16;
+}
+
+fun main() = {
+    var nr = builtin_input_i64();
+    var tryb = builtin_input_i64();
+    var dane = builtin_input_i64();
+    var n = builtin_input_i64();
+
+    if (nr < 0 or nr > algorytmy.LICZBA_ALGORYTMOW or tryb < 1 or tryb > 3 or dane < 1 or dane > 4) {
+        print("blad: zle parametry (zobacz README: algorytm 0-6, tryb 1-3, dane 1-4)\n");
+        return 1;
+    }
+    if (nr == 0 and tryb != 3) {
+        print("blad: algorytm 0 (wszystkie) dziala tylko w trybie 3\n");
+        return 1;
+    }
+    var limit_n = MAX_N_ANIMACJA;
+    if (tryb == 3) limit_n = MAX_N_LICZNIKI;
+    if (n < 1 or n > limit_n) {
+        print(f"blad: n musi byc od 1 do {limit_n}\n");
+        return 1;
+    }
+
+    var t: List[i64];
+    if (dane == 1) {
+        var k: i64 = 0;
+        while (k < n) {
+            t.push(builtin_input_i64());
+            k += 1;
+        }
+    }
+    if (dane == 2) t = losowe(n, builtin_input_i64());
+    if (dane == 3) {
+        var k = n;
+        while (k >= 1) {
+            t.push(k);
+            k -= 1;
+        }
+    }
+    if (dane == 4) {
+        var k: i64 = 1;
+        while (k <= n) {
+            t.push(k);
+            k += 1;
+        }
+    }
+
+    if (tryb == 3) {
+        print(f"n = {n}, dane: ");
+        wypisz_tablice(&t);
+        print("algorytm            porownania   zamiany    zapisy\n");
+        if (nr == 0) {
+            var a: i64 = 1;
+            while (a <= algorytmy.LICZBA_ALGORYTMOW) {
+                porownaj(a, &t);
+                a += 1;
+            }
+        } else {
+            porownaj(nr, &t);
+        }
+        return 0;
+    }
+
+    var limit = LIMIT_TEKST;
+    if (tryb == slad.HTML) limit = LIMIT_HTML;
+    var s = slad.nowy(tryb, limit, &t);
+    algorytmy.sortuj(nr, &s, &t);
+    if (tryb == slad.TEKST) {
+        if (s.obciete) print(f"(pokazano {limit} pierwszych krokow i wynik)\n");
+        print(f"sortowanie {algorytmy.nazwa(nr)}: porownania {s.porownania}, zamiany {s.zamiany}, zapisy {s.zapisy}\n");
+        print("wynik: ");
+        wypisz_tablice(&t);
+    } else {
+        html.wypisz(&s, n, algorytmy.nazwa(nr));
+    }
     return 0;
 }
